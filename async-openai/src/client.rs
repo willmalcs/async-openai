@@ -5,6 +5,7 @@ use futures::{stream::StreamExt, Stream};
 use reqwest::multipart::Form;
 use reqwest_eventsource::{Event, EventSource, RequestBuilderExt};
 use serde::{de::DeserializeOwned, Serialize};
+use tracing::debug;
 
 use crate::{
     config::{Config, OpenAIConfig},
@@ -263,11 +264,55 @@ impl<C: Config> Client<C> {
         O: DeserializeOwned,
     {
         let request_maker = || async {
+            let url = self.config.url(path);
+            let query_params = self.config.query();
+            let headers = self.config.headers();
+            let request_json = serde_json::to_string_pretty(&request)
+                .unwrap_or_else(|_| "Failed to serialize request".to_string());
+            
+            debug!("OpenAI API Request:");
+            debug!("URL: {}", url);
+            debug!("Method: POST");
+            
+            if !query_params.is_empty() {
+                debug!("Query Parameters: {:?}", query_params);
+            }
+            
+            debug!("Headers:");
+            for (name, value) in &headers {
+                if name == "authorization" {
+                    debug!("  {}: Bearer ***", name);
+                } else {
+                    debug!("  {}: {:?}", name, value.to_str().unwrap_or("invalid"));
+                }
+            }
+            
+            debug!("Request Body:\n{}", request_json);
+            
+            // Build curl command for debugging
+            let mut curl_cmd = format!("curl -X POST '{}'", url);
+            
+            if !query_params.is_empty() {
+                let query_string = serde_urlencoded::to_string(&query_params)
+                    .unwrap_or_else(|_| "Failed to serialize query".to_string());
+                curl_cmd.push_str(&format!("?{}", query_string));
+            }
+            
+            for (name, value) in &headers {
+                if let Ok(value_str) = value.to_str() {
+                    curl_cmd.push_str(&format!(" -H '{}: {}'", name, value_str));
+                }
+            }
+            
+            curl_cmd.push_str(&format!(" -d '{}'", request_json.replace("'", "'\\''")));
+            
+            debug!("Equivalent curl command:\n{}", curl_cmd);
+            
             Ok(self
                 .http_client
-                .post(self.config.url(path))
-                .query(&self.config.query())
-                .headers(self.config.headers())
+                .post(url)
+                .query(&query_params)
+                .headers(headers)
                 .json(&request)
                 .build()?)
         };
