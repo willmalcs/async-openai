@@ -293,8 +293,11 @@ impl<C: Config> Client<C> {
             let mut curl_cmd = format!("curl -X POST '{}'", url);
             
             if !query_params.is_empty() {
-                let query_string = serde_urlencoded::to_string(&query_params)
-                    .unwrap_or_else(|_| "Failed to serialize query".to_string());
+                let query_string = query_params
+                    .iter()
+                    .map(|(k, v)| format!("{}={}", k, v))
+                    .collect::<Vec<_>>()
+                    .join("&");
                 curl_cmd.push_str(&format!("?{}", query_string));
             }
             
