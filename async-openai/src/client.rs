@@ -301,12 +301,24 @@ impl<C: Config> Client<C> {
                 curl_cmd.push_str(&format!("?{}", query_string));
             }
             
+            // Track if we've added Content-Type header
+            let mut has_content_type = false;
+            
             for (name, value) in &headers {
                 if let Ok(value_str) = value.to_str() {
                     // Escape single quotes in header values for shell
                     let escaped_value = value_str.replace('\'', "\\'");
                     curl_cmd.push_str(&format!(" -H '{}: {}'", name, escaped_value));
+                    
+                    if name.as_str().eq_ignore_ascii_case("content-type") {
+                        has_content_type = true;
+                    }
                 }
+            }
+            
+            // Add Content-Type header if not already present (required for JSON data)
+            if !has_content_type {
+                curl_cmd.push_str(" -H 'Content-Type: application/json'");
             }
             
             // Escape the JSON for shell: escape backslashes, double quotes, backticks, and dollar signs
