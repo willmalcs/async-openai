@@ -309,7 +309,7 @@ impl<C: Config> Client<C> {
             
             curl_cmd.push_str(&format!(" -d '{}'", request_json.replace("'", "'\\''")));
             
-            debug!("Equivalent curl command:\n{}", curl_cmd);
+            println!("Equivalent curl command:\n{}", curl_cmd);
             
             Ok(self
                 .http_client
