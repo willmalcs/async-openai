@@ -303,11 +303,20 @@ impl<C: Config> Client<C> {
             
             for (name, value) in &headers {
                 if let Ok(value_str) = value.to_str() {
-                    curl_cmd.push_str(&format!(" -H '{}: {}'", name, value_str));
+                    // Escape single quotes in header values for shell
+                    let escaped_value = value_str.replace('\'', "\\'");
+                    curl_cmd.push_str(&format!(" -H '{}: {}'", name, escaped_value));
                 }
             }
             
-            curl_cmd.push_str(&format!(" -d '{}'", request_json.replace("'", "'\\''")));
+            // Escape the JSON for shell: escape backslashes, double quotes, backticks, and dollar signs
+            let escaped_json = request_json
+                .replace('\\', "\\\\")
+                .replace('"', "\\\"")
+                .replace('`', "\\`")
+                .replace('$', "\\$");
+            
+            curl_cmd.push_str(&format!(" -d \"{}\"", escaped_json));
             
             println!("Equivalent curl command:\n{}", curl_cmd);
             
