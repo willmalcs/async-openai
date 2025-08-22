@@ -292,7 +292,7 @@ impl<C: Config> Client<C> {
             // Build curl command for debugging
             println!("Equivalent curl command:");
             
-            // Build the curl command with heredoc for clean JSON
+            // Build the curl command
             print!("curl -X POST '{}'", url);
             
             if !query_params.is_empty() {
@@ -324,10 +324,15 @@ impl<C: Config> Client<C> {
                 print!(" \\\n  -H 'Content-Type: application/json'");
             }
             
-            // Use heredoc with stdin for the JSON data
-            println!(" \\\n  -d @- << 'EOF'");
-            println!("{}", request_json);
-            println!("EOF");
+            // Use single-line JSON with proper escaping for shell
+            let escaped_json = request_json
+                .lines()
+                .map(|line| line.trim())
+                .collect::<Vec<_>>()
+                .join("")
+                .replace('\'', "'\\''");  // Escape single quotes for shell
+            
+            println!(" \\\n  -d '{}'", escaped_json);
             
             Ok(self
                 .http_client
