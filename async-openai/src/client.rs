@@ -290,7 +290,10 @@ impl<C: Config> Client<C> {
             debug!("Request Body:\n{}", request_json);
             
             // Build curl command for debugging
-            let mut curl_cmd = format!("curl -X POST '{}'", url);
+            println!("Equivalent curl command:");
+            
+            // Build the curl command with heredoc for clean JSON
+            print!("curl -X POST '{}'", url);
             
             if !query_params.is_empty() {
                 let query_string = query_params
@@ -298,7 +301,7 @@ impl<C: Config> Client<C> {
                     .map(|(k, v)| format!("{}={}", k, v))
                     .collect::<Vec<_>>()
                     .join("&");
-                curl_cmd.push_str(&format!("?{}", query_string));
+                print!("?{}", query_string);
             }
             
             // Track if we've added Content-Type header
@@ -308,7 +311,7 @@ impl<C: Config> Client<C> {
                 if let Ok(value_str) = value.to_str() {
                     // Escape single quotes in header values for shell
                     let escaped_value = value_str.replace('\'', "\\'");
-                    curl_cmd.push_str(&format!(" -H '{}: {}'", name, escaped_value));
+                    print!(" \\\n  -H '{}: {}'", name, escaped_value);
                     
                     if name.as_str().eq_ignore_ascii_case("content-type") {
                         has_content_type = true;
@@ -318,19 +321,13 @@ impl<C: Config> Client<C> {
             
             // Add Content-Type header if not already present (required for JSON data)
             if !has_content_type {
-                curl_cmd.push_str(" -H 'Content-Type: application/json'");
+                print!(" \\\n  -H 'Content-Type: application/json'");
             }
             
-            // Escape the JSON for shell: escape backslashes, double quotes, backticks, and dollar signs
-            let escaped_json = request_json
-                .replace('\\', "\\\\")
-                .replace('"', "\\\"")
-                .replace('`', "\\`")
-                .replace('$', "\\$");
-            
-            curl_cmd.push_str(&format!(" -d \"{}\"", escaped_json));
-            
-            println!("Equivalent curl command:\n{}", curl_cmd);
+            // Use heredoc with stdin for the JSON data
+            println!(" \\\n  -d @- << 'EOF'");
+            println!("{}", request_json);
+            println!("EOF");
             
             Ok(self
                 .http_client
